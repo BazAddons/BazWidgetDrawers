@@ -76,6 +76,36 @@ function WidgetHost:Initialize(parent)
         end)
     end
 
+    -- Combat-deferral. Some widgets parent secure children (e.g. the
+    -- Trinket Tracker uses SecureActionButtonTemplate buttons), so any
+    -- structural change to their frame during combat lockdown - Hide,
+    -- SetParent, SetPoint - is blocked by the taint system. We park
+    -- pending structural work here and replay it when combat ends.
+    self._combatWatcher = self._combatWatcher or CreateFrame("Frame")
+    self._combatWatcher:RegisterEvent("PLAYER_REGEN_ENABLED")
+    self._combatWatcher:SetScript("OnEvent", function()
+        if self._reflowPending then
+            self._reflowPending = nil
+            self:Reflow()
+        end
+        if self._pendingDisable then
+            local list = self._pendingDisable
+            self._pendingDisable = nil
+            for _, w in ipairs(list) do self:DisableWidget(w) end
+        end
+        if self._pendingFloat then
+            local list = self._pendingFloat
+            self._pendingFloat = nil
+            for _, entry in ipairs(list) do
+                if entry.float then
+                    self:FloatWidget(entry.widget)
+                else
+                    self:DockWidget(entry.widget)
+                end
+            end
+        end
+    end)
+
     self:Reflow()
 end
 
@@ -283,6 +313,14 @@ end
 
 function WidgetHost:FloatWidget(widget)
     if not widget or not widget.frame then return end
+
+    -- SetParent / SetPoint on protected frames is blocked in combat.
+    if InCombatLockdown() then
+        self._pendingFloat = self._pendingFloat or {}
+        table.insert(self._pendingFloat, { widget = widget, float = true })
+        return
+    end
+
     local id = widget.id
 
     -- Release any existing slot for this widget
@@ -348,6 +386,15 @@ end
 function WidgetHost:DockWidget(widget)
     if not widget or not widget.frame then return end
 
+    -- Reparenting back into a slot during combat is blocked when the
+    -- widget owns secure children. Defer the dock and re-run on
+    -- PLAYER_REGEN_ENABLED.
+    if InCombatLockdown() then
+        self._pendingFloat = self._pendingFloat or {}
+        table.insert(self._pendingFloat, { widget = widget, float = false })
+        return
+    end
+
     -- Unregister from BazCore Edit Mode
     if widget._editModeRegistered and BazCore.UnregisterEditModeFrame then
         BazCore:UnregisterEditModeFrame(widget.frame)
@@ -364,6 +411,14 @@ end
 -- registry so it can be re-enabled later.
 function WidgetHost:DisableWidget(widget)
     if not widget or not widget.frame then return end
+
+    -- Protected children make Hide a taint risk during combat.
+    if InCombatLockdown() then
+        self._pendingDisable = self._pendingDisable or {}
+        table.insert(self._pendingDisable, widget)
+        return
+    end
+
     local id = widget.id
 
     local slot = self.slots[id]
@@ -630,6 +685,15 @@ end
 
 function WidgetHost:Reflow()
     if not self.parent then return end
+
+    -- Defer the entire reflow if we're in combat. Reflow can call
+    -- DisableWidget / FloatWidget / slot:Hide on frames that parent
+    -- protected children, which the taint system blocks. Run again
+    -- on PLAYER_REGEN_ENABLED.
+    if InCombatLockdown() then
+        self._reflowPending = true
+        return
+    end
 
     -- Locked drawers collapse their widget title-bar space so faded-out
     -- title bars don't leave awkward gaps between widgets. When unlocked

@@ -2,6 +2,12 @@
 
 > Renamed from BazDrawer to BazWidgetDrawers in v016. Settings are migrated automatically.
 
+## 050 - Combat-deferred WidgetHost reflow
+- Fix `ADDON_ACTION_BLOCKED` errors when a dormant widget transitions during combat. Reflow could call `DisableWidget` / `FloatWidget` / `slot:Hide` on frames that parent secure children (e.g. BazWidgets' Trinket Tracker uses `SecureActionButtonTemplate` buttons), and the taint system blocks those mutations under combat lockdown.
+- New `_combatWatcher` event frame in `WidgetHost:Initialize` listens for `PLAYER_REGEN_ENABLED` and replays any deferred work.
+- `Reflow` early-returns with `_reflowPending = true` if `InCombatLockdown()`; the watcher re-runs it after combat.
+- `DisableWidget`, `FloatWidget`, `DockWidget` each queue themselves into `_pendingDisable` / `_pendingFloat` instead of touching the frame during combat; flushed on `PLAYER_REGEN_ENABLED`.
+
 ## 016 - Micro Menu Widget, Widget Pack Split, Nudge Controls
 ### Widget Pack Split
 - **Moved Repair and Dungeon Finder widgets to BazWidgets** — a new standalone widget pack addon. BazDrawer now ships only core/demo widgets (Quest Tracker, Minimap, Minimap Buttons, Minimap Info Bar, Zone Text, Micro Menu). Community widgets and utility widgets live in BazWidgets, which serves as both a useful widget collection and a reference implementation for third-party widget pack authors.
