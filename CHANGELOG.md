@@ -2,6 +2,11 @@
 
 > Renamed from BazDrawer to BazWidgetDrawers in v016. Settings are migrated automatically.
 
+## 051 - Per-drawer widget list respects global enable
+- The Widgets subcategory enables/disables widgets globally; the Drawers subcategory picks which enabled widgets appear in each drawer. Previously the per-drawer list showed every registered widget regardless of its global state, so a globally-disabled widget still appeared as a toggle on each drawer's page.
+- Per-drawer widget toggle list now filters by `addon:IsWidgetEnabled(id)` for both the registered widgets and the dormant-widget fallback. Globally-disabled widgets are hidden from the drawer list entirely.
+- Toggling a widget on/off in Widgets refreshes the Drawers page automatically so entries appear/disappear live.
+
 ## 050 - Combat-deferred WidgetHost reflow
 - Fix `ADDON_ACTION_BLOCKED` errors when a dormant widget transitions during combat. Reflow could call `DisableWidget` / `FloatWidget` / `slot:Hide` on frames that parent secure children (e.g. BazWidgets' Trinket Tracker uses `SecureActionButtonTemplate` buttons), and the taint system blocks those mutations under combat lockdown.
 - New `_combatWatcher` event frame in `WidgetHost:Initialize` listens for `PLAYER_REGEN_ENABLED` and replays any deferred work.

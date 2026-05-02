@@ -553,6 +553,9 @@ local function GetModulesOptionsTable()
             else
                 addon:SetWidgetEnabled(id, val)
             end
+            -- Refresh the Drawers page so the per-drawer widget list
+            -- reflects the new enabled set (added/removed entries).
+            BazCore:RefreshOptions("BazWidgetDrawers-Drawers")
         end,
     })
 end
@@ -685,38 +688,45 @@ local function BuildDrawerGroup(drawerDef, drawerId, index, total)
         },
     }
 
-    -- Add a toggle for each available widget
+    -- Add a toggle for each available widget. Globally-disabled widgets
+    -- (toggled off on the Widgets subcategory) are filtered out entirely
+    -- so the per-drawer list only shows the widgets that can actually
+    -- appear anywhere - matches the user expectation that the drawer
+    -- "available widgets" reflects the enabled set, not the registered
+    -- set.
     local widgetOrder = 22
     for _, w in ipairs(allWidgets) do
         local wid = w.id
-        args["widget_" .. wid] = {
-            order = widgetOrder,
-            type = "toggle",
-            name = WidgetDisplayName(wid, w),
-            get = function()
-                return addon:IsWidgetInDrawer(drawerId, wid)
-            end,
-            set = function(_, val)
-                if val then
-                    addon:AddWidgetToDrawer(drawerId, wid)
-                else
-                    addon:RemoveWidgetFromDrawer(drawerId, wid)
-                end
-                -- No RefreshOptions here: the checkbox visual updates
-                -- natively, and the drawer reflows via AddWidgetToDrawer.
-                -- Avoiding the rebuild preserves scroll position.
-            end,
-        }
-        widgetOrder = widgetOrder + 1
+        if addon:IsWidgetEnabled(wid) then
+            args["widget_" .. wid] = {
+                order = widgetOrder,
+                type = "toggle",
+                name = WidgetDisplayName(wid, w),
+                get = function()
+                    return addon:IsWidgetInDrawer(drawerId, wid)
+                end,
+                set = function(_, val)
+                    if val then
+                        addon:AddWidgetToDrawer(drawerId, wid)
+                    else
+                        addon:RemoveWidgetFromDrawer(drawerId, wid)
+                    end
+                    -- No RefreshOptions here: the checkbox visual updates
+                    -- natively, and the drawer reflows via AddWidgetToDrawer.
+                    -- Avoiding the rebuild preserves scroll position.
+                end,
+            }
+            widgetOrder = widgetOrder + 1
+        end
     end
 
-    -- Also include dormant widgets
+    -- Also include dormant widgets (still filtered by global enable).
     local LBW = LibStub and LibStub("LibBazWidget-1.0", true)
     if LBW and LBW.dormant then
         local seen = {}
         for _, w in ipairs(allWidgets) do seen[w.id] = true end
         for id, entry in pairs(LBW.dormant) do
-            if not seen[id] then
+            if not seen[id] and addon:IsWidgetEnabled(id) then
                 local wid = id
                 args["widget_" .. wid] = {
                     order = widgetOrder,
