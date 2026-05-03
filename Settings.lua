@@ -418,6 +418,8 @@ local function BuildWidgetGroup(widget, index, total)
             source = "BazWidgetDrawers"
         elseif id:sub(1, 11) == "bazwidgets_" then
             source = "BazWidgets"
+        elseif id:sub(1, 8) == "bazcore_" then
+            source = "BazCore"
         elseif id:sub(1, 10) == "bazbroker_" then
             source = "LibDataBroker"
         end

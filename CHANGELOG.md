@@ -2,6 +2,9 @@
 
 > Renamed from BazDrawer to BazWidgetDrawers in v016. Settings are migrated automatically.
 
+## 053 - Widgets list: recognise `bazcore_` prefix
+- Widgets registered with an ID starting `bazcore_` (e.g. BazCore's CPU Monitor) now group under "BazCore" instead of "Other" in the Widgets settings list. Mirrors the existing prefix detection for `bazdrawer_`, `bazwidgets_`, `bazbroker_`.
+
 ## 052 - QuestTracker: ignore quest clicks during combat
 - Clicking a quest title in the QuestTracker widget while in combat triggered `ADDON_ACTION_BLOCKED` errors. The chain: click → `SetSuperTrackedQuestID` (or right-click → `RemoveQuestWatch`, or the map open path) → fires `Supertracking.OnChanged` / `QUEST_WATCH_LIST_CHANGED` → Blizzard's `QuestDataProvider:RefreshAllData` walks every quest → `AcquirePin` → `CheckMouseButtonPassthrough` → `SetPassThroughButtons`, which is taint-blocked because BazMap (or any other map addon) has touched WorldMapFrame's attribute table. The click never accomplishes anything, just spams BugSack.
 - Now the click handler bails on `InCombatLockdown()`. Re-click after combat ends.
