@@ -2,6 +2,14 @@
 
 > Renamed from BazDrawer to BazWidgetDrawers in v016. Settings are migrated automatically.
 
+## 054 - Widgets: enable toggle works for dormant widgets
+
+`WidgetHost:SetWidgetEnabled` early-returned when `BazCore:GetDockableWidget(id)` came back nil. That's the right guard for the live-side mutations (showing the frame, reflowing slots) but the wrong place to put the saved-variable write — dormant widgets (registered via LibBazWidget but waiting on a condition like "in dungeon queue") aren't in the dockable registry yet, so the early return silently swallowed every enable/disable click on them.
+
+User-visible: enabling a widget on the Widgets page, then navigating to Drawers, showed the widget still missing from the per-drawer list because `IsWidgetEnabled` had never been updated.
+
+Moved the `addon:SetWidgetEnabled` write to run unconditionally; the live-side branch (Show + Reflow vs DisableWidget) only runs when the widget is currently dockable. Dormant widgets pick up the new state when their condition triggers a registration.
+
 ## 053 - Widgets list: recognise `bazcore_` prefix
 - Widgets registered with an ID starting `bazcore_` (e.g. BazCore's CPU Monitor) now group under "BazCore" instead of "Other" in the Widgets settings list. Mirrors the existing prefix detection for `bazdrawer_`, `bazwidgets_`, `bazbroker_`.
 

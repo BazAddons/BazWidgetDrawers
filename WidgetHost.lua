@@ -438,17 +438,28 @@ end
 
 -- Public toggle used by the Modules subcategory
 function WidgetHost:SetWidgetEnabled(widgetId, enabled)
-    local widget = BazCore.GetDockableWidget and BazCore:GetDockableWidget(widgetId)
-    if not widget then return end
-
+    -- Record the user's preference first, regardless of whether the
+    -- widget is currently live (dockable) or dormant (registered with
+    -- LibBazWidget but waiting on a condition like "in dungeon queue").
+    -- Dormant widgets aren't in the dockable registry yet, so guarding
+    -- the saved-variable write behind GetDockableWidget caused the
+    -- toggle to silently no-op for them - the user enables a dormant
+    -- widget on the Widgets page, navigates to Drawers, and the widget
+    -- still appears disabled because IsWidgetEnabled was never updated.
     addon:SetWidgetEnabled(widgetId, enabled)
 
-    if enabled then
-        -- Restore: let Reflow pick it back up based on its floating state
-        if widget.frame then widget.frame:Show() end
-        self:Reflow()
-    else
-        self:DisableWidget(widget)
+    -- Live-side mutations only apply when the widget is currently
+    -- registered as dockable. Dormant widgets will pick up the new
+    -- enable state when their condition triggers a registration.
+    local widget = BazCore.GetDockableWidget and BazCore:GetDockableWidget(widgetId)
+    if widget then
+        if enabled then
+            -- Restore: let Reflow pick it back up based on its floating state
+            if widget.frame then widget.frame:Show() end
+            self:Reflow()
+        else
+            self:DisableWidget(widget)
+        end
     end
 
     -- Let widgets react to their own enable/disable transition. This is
