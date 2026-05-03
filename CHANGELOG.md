@@ -2,202 +2,76 @@
 
 > Renamed from BazDrawer to BazWidgetDrawers in v016. Settings are migrated automatically.
 
-## 054 - Widgets: enable toggle works for dormant widgets
+## 055 — Newly enabled widgets stay off in drawers until you add them
 
-`WidgetHost:SetWidgetEnabled` early-returned when `BazCore:GetDockableWidget(id)` came back nil. That's the right guard for the live-side mutations (showing the frame, reflowing slots) but the wrong place to put the saved-variable write — dormant widgets (registered via LibBazWidget but waiting on a condition like "in dungeon queue") aren't in the dockable registry yet, so the early return silently swallowed every enable/disable click on them.
+Turning a widget on in the Widgets page no longer auto-adds it to every
+drawer. Head to the Drawers page and tick the widget on for whichever
+drawer(s) you want it in. Existing drawers that were set to "show all"
+freeze their current widget list the first time you flip a new widget
+on, so nothing already in them disappears.
 
-User-visible: enabling a widget on the Widgets page, then navigating to Drawers, showed the widget still missing from the per-drawer list because `IsWidgetEnabled` had never been updated.
+## 054 — Enabling dormant widgets actually saves now
 
-Moved the `addon:SetWidgetEnabled` write to run unconditionally; the live-side branch (Show + Reflow vs DisableWidget) only runs when the widget is currently dockable. Dormant widgets pick up the new state when their condition triggers a registration.
+Widgets that wake up on demand (like the Dungeon Finder widget when
+you queue) didn't save their on/off state when you toggled them — the
+Widgets page click silently did nothing. Fixed; the toggle now sticks
+and the widget shows up correctly on the Drawers page.
 
-## 053 - Widgets list: recognise `bazcore_` prefix
-- Widgets registered with an ID starting `bazcore_` (e.g. BazCore's CPU Monitor) now group under "BazCore" instead of "Other" in the Widgets settings list. Mirrors the existing prefix detection for `bazdrawer_`, `bazwidgets_`, `bazbroker_`.
+## 053 — BazCore widgets group under "BazCore" in the list
 
-## 052 - QuestTracker: ignore quest clicks during combat
-- Clicking a quest title in the QuestTracker widget while in combat triggered `ADDON_ACTION_BLOCKED` errors. The chain: click → `SetSuperTrackedQuestID` (or right-click → `RemoveQuestWatch`, or the map open path) → fires `Supertracking.OnChanged` / `QUEST_WATCH_LIST_CHANGED` → Blizzard's `QuestDataProvider:RefreshAllData` walks every quest → `AcquirePin` → `CheckMouseButtonPassthrough` → `SetPassThroughButtons`, which is taint-blocked because BazMap (or any other map addon) has touched WorldMapFrame's attribute table. The click never accomplishes anything, just spams BugSack.
-- Now the click handler bails on `InCombatLockdown()`. Re-click after combat ends.
+The CPU Monitor widget (and any future BazCore-provided widget) used to
+appear under "Other" in the Widgets settings list. It now groups under
+"BazCore" alongside the other suite widgets.
 
-## 051 - Per-drawer widget list respects global enable
-- The Widgets subcategory enables/disables widgets globally; the Drawers subcategory picks which enabled widgets appear in each drawer. Previously the per-drawer list showed every registered widget regardless of its global state, so a globally-disabled widget still appeared as a toggle on each drawer's page.
-- Per-drawer widget toggle list now filters by `addon:IsWidgetEnabled(id)` for both the registered widgets and the dormant-widget fallback. Globally-disabled widgets are hidden from the drawer list entirely.
-- Toggling a widget on/off in Widgets refreshes the Drawers page automatically so entries appear/disappear live.
+## 052 — Quest Tracker no longer errors during combat
 
-## 050 - Combat-deferred WidgetHost reflow
-- Fix `ADDON_ACTION_BLOCKED` errors when a dormant widget transitions during combat. Reflow could call `DisableWidget` / `FloatWidget` / `slot:Hide` on frames that parent secure children (e.g. BazWidgets' Trinket Tracker uses `SecureActionButtonTemplate` buttons), and the taint system blocks those mutations under combat lockdown.
-- New `_combatWatcher` event frame in `WidgetHost:Initialize` listens for `PLAYER_REGEN_ENABLED` and replays any deferred work.
-- `Reflow` early-returns with `_reflowPending = true` if `InCombatLockdown()`; the watcher re-runs it after combat.
-- `DisableWidget`, `FloatWidget`, `DockWidget` each queue themselves into `_pendingDisable` / `_pendingFloat` instead of touching the frame during combat; flushed on `PLAYER_REGEN_ENABLED`.
+Clicking a quest title in the tracker while in combat used to spam
+"action blocked" errors. The click is now ignored during combat —
+re-click after combat ends.
 
-## 016 - Micro Menu Widget, Widget Pack Split, Nudge Controls
-### Widget Pack Split
-- **Moved Repair and Dungeon Finder widgets to BazWidgets** — a new standalone widget pack addon. BazDrawer now ships only core/demo widgets (Quest Tracker, Minimap, Minimap Buttons, Minimap Info Bar, Zone Text, Micro Menu). Community widgets and utility widgets live in BazWidgets, which serves as both a useful widget collection and a reference implementation for third-party widget pack authors.
+## 051 — Drawers page only lists widgets you've enabled
 
-### New Widget: Micro Menu
-- Reparents Blizzard's `MicroMenu` (the button row only, not the oversized container that includes eye space) into the drawer or as a floating widget
-- Scales button row to fill the widget width automatically
-- Hides the empty `MicroMenuContainer` and its Edit Mode `Selection` highlight off-screen
-- **Fade When Not Hovered** toggle — fully transparent at rest, fades in on hover, fades back out on leave; auto-visible during Edit Mode so the highlight is always usable
-- **Hide Bags Bar** toggle (default on) — hides Blizzard's floating bag buttons bar
+Disabling a widget in the Widgets page now removes it from every
+drawer's checkbox list, instead of leaving an unusable toggle. Re-
+enable it and it comes back automatically.
 
-### All Floating Widgets
-- **Nudge controls** — every floating widget's Edit Mode popup now includes pixel-precise nudge buttons (Left/Right/Up/Down) via BazCore's `{ type = "nudge" }` setting, added automatically in `BuildEditModeConfig`
+## 050 — No more "action blocked" errors during combat
 
-## 015 - Zygor Waypoint Integration, Waypoints Module Rename
-- **Zygor waypoint integration** — when Zygor Guides is installed, super-tracking a quest now sets Zygor's navigation arrow to the quest's next objective via `ZGV.Pointer:SetWaypoint(mapID, x, y, { title, arrow=true, findpath=true, type="manual" })`. Independently toggleable in Quest Tracker → Integrations → Zygor Waypoint. Greyed out when Zygor isn't installed. Fires alongside TomTom (both can run simultaneously).
-- **Renamed `TomTom.lua` → `Waypoints.lua`** — the file now handles both TomTom and Zygor integrations, so the old name was misleading. `ResolveQuestWaypoint` promoted from local function to `QT.ResolveQuestWaypoint` so both integrations share the same waypoint resolution logic.
+When dormant widgets registered or unregistered themselves while in
+combat (e.g. Trinket Tracker's secure buttons), the drawer's reflow
+could trip combat-lockdown errors. Reflow and widget moves now wait
+until you leave combat before running.
 
-## 014 - Progress Bar Polish
-- **Blizzard-matching progress bar border** — added `UI-Character-Skills-BarBorder` left/right caps and tiled middle border to the quest tracker's progress bar, matching the default tracker's `ObjectiveTrackerProgressBarTemplate` styling
-- **Shorter bar width** — capped at 180px (Blizzard's exact width) instead of stretching the full objective text area
-- **Stripped redundant percentage from objective text** — progress bar objectives like "Shrine protected (74%)" now display as just "Shrine protected" since the bar already shows the percentage visually
-- **Added padding above and below the bar** — 4px breathing room so the bar doesn't crowd the objective text or the next element
+## 049 and earlier — Multi-drawer support
 
-## 013 - Fix UnitFrame Taint Errors
-- **Fixed "secret number value tainted by BazDrawer" errors** on UnitFrame health bars, mana bars, and text status bars when targeting enemies or entering combat
-  - Root cause: BazDrawer was replacing `ObjectiveTrackerFrame.Show` and `DurabilityFrame.Show` with `Hide` directly, which taints the frame's method table. The taint propagated through `UIParentRightManagedFrameContainer` to PlayerFrame/TargetFrame health and mana bars.
-  - Fix: replaced all method overrides (`frame.Show = frame.Hide`) with `hooksecurefunc(frame, "Show", function() if suppressed then self:Hide() end end)`. `hooksecurefunc` appends to the original secure method without replacing it, so no taint is introduced. The suppression behavior is identical — the frame briefly Shows then immediately re-Hides (imperceptible single-frame flicker).
-  - `ObjectiveTrackerFrame` suppression (Options.lua) and `DurabilityFrame` suppression (Repair.lua) both converted to the hooksecurefunc pattern.
-  - Removed `UIParentRightManagedFrameContainer:RemoveManagedFrame(DurabilityFrame)` call — uses `ignoreFramePositionManager = true` flag instead, which the container checks without tainting its internal state.
-  - Removed the pcall wrapper on `UnitFrameHealthBar_Update` from Compat.lua since the taint source is eliminated.
+Multiple drawer presets, each with their own widget list, width, and
+fade settings. Switch between them via the tabs at the top of the
+drawer or auto-switch based on game context (questing, M+, raid, etc.).
 
-## 012 - Auto-Complete Popup, Bonus Objectives, Whitelist Filter
-### Quest Tracker
-- **Auto-complete quest popup** — quests with `isAutoComplete` that are ready to turn in now show a decorative popup inside the Quests group with Blizzard's question mark icon, gold ornamental border (all 8 pieces from AutoQuest-Parts tex coords), serif quest name in `QuestFont_Large`, and "Click to complete quest" header. Clicking opens the turn-in dialog via `ShowQuestComplete(questID)`. The question mark icon pulses red via a BOUNCE animation group.
-- **Title click for auto-complete** — left-clicking the quest title also calls `ShowQuestComplete` when the quest is auto-completable, matching Blizzard's default tracker behavior
-- **Bonus Objectives section** — area task quests (bonus objectives that auto-track when you enter the zone) now appear in a "Bonus Objectives" group at the bottom of the tracker, using `GetTasksTable()` + `GetTaskInfo()` to detect in-area tasks that aren't world quests or already-watched quests
-- **`QUEST_AUTOCOMPLETE` event** registered for immediate refresh when a quest becomes auto-completable
+## 016 — Renamed from BazDrawer to BazWidgetDrawers
 
-### Minimap Buttons Widget
-- **Whitelist adoption filter** — switched from blacklist ("adopt everything except Blizzard frames") to whitelist (`LibDBIcon10_*` prefix + known buttons table). Prevents map-pin addons like HandyNotes from flooding the grid with invisible pin frames. Zygor's map icon whitelisted explicitly.
+Also split the Repair and Dungeon Finder widgets out into a separate
+BazWidgets addon so this addon stays focused on the drawer plus a
+small set of core widgets (Quest Tracker, Minimap, Minimap Buttons,
+Minimap Info Bar, Zone Text, Micro Menu).
 
-## 011 - Minimap Buttons: Centered Grid, Persistent Eye Capture, Eye-First Sort
-### Minimap Buttons Widget
-- **Centered button grid** — the grid now computes how many columns are actually occupied and horizontally centers them within the widget instead of left-aligning from the padding edge. Re-centers dynamically when the queue eye appears or disappears.
-- **Persistent queue eye capture** — hooked `MicroMenu:Layout` to continuously remove `QueueStatusButton` from Blizzard's layout list after every micro menu re-layout. Previously a one-time removal that Blizzard would undo on instance entry, queue changes, and other events. Also forces reparent + re-anchor on every `LayoutButtons` pass unconditionally instead of relying on a parent-check guard.
-- **Queue eye always takes slot 1** — `QueueStatusButton` sorts to the leftmost grid position regardless of the user's custom button order or alphabetical fallback, so the eye is always the first thing you see when it appears.
+### Earlier highlights
 
-## 010 - Code Cleanup
-- Deleted the old monolithic `Widgets/QuestTracker.lua` (1596 lines) that was left in the repo after the v009 modular refactor
-- Removed dead `topHeaderFrame` variable from State.lua and its nil-hide in Init.lua (defined but never created or shown)
-- Cleaned stale BazMiniMap supersession comments from Minimap.lua, MinimapInfoBar.lua, and the Settings.lua user manual
-- Verified: no TODO/FIXME markers, no dead functions, no unused variables, no stale colon-call references in the modular QuestTracker files
-
-## 009 - Quest Tracker Modular Refactor + M+ Challenge Mode Block
-### Modular Refactor
-- Split the monolithic `Widgets/QuestTracker.lua` (1596 lines) into 11 focused modules under `Widgets/QuestTracker/`:
-  - **Constants.lua** (61) — layout constants, font refs, color helpers
-  - **State.lua** (24) — shared mutable state (pools, items list, scroll position)
-  - **Collapse.lua** (26) — group collapse state management
-  - **Data.lua** (160) — quest, achievement, and classification data polling
-  - **Scenario.lua** (99) — dungeon/delve/scenario data from C_Scenario APIs
-  - **TomTom.lua** (78) — TomTom waypoint integration
-  - **Headers.lua** (72) — section header creation and pool
-  - **Blocks.lua** (495) — block creation, population (scenario/quest/achievement rendering), pool management
-  - **ChallengeMode.lua** (315) — NEW M+ block (see below)
-  - **Options.lua** (101) — settings panel + Blizzard tracker visibility
-  - **Init.lua** (352) — Build, Init, Refresh, ApplyLayout, Scroll, event registration
-- All modules share state through `addon.QT` — no globals, no circular dependencies, strict TOC load order
-- Zero behavioral changes from the refactor itself — the tracker renders identically to v008
-
-### M+ Challenge Mode Block (NEW)
-- Dedicated frame for Mythic+ dungeon runs, completely separate from the generic scenario block:
-  - **Live countdown timer** — StatusBar driven by `GetWorldElapsedTime()` on a 0.1s OnUpdate tick; color transitions green → yellow → red as time runs out; shows `+MM:SS` overtime in red when depleted
-  - **Keystone level** — displays `+N` in gold next to the dungeon name
-  - **Affix icons** — up to 4 circular icons from `C_ChallengeMode.GetAffixInfo()` with hover tooltips showing affix name and description; masked to circles matching the minimap button style
-  - **Death counter** — graveyard icon + death count from `C_ChallengeMode.GetDeathCount()`; tooltip shows time penalty via `SecondsToClock(timeLost)`
-- Activates automatically when `C_ChallengeMode.IsChallengeModeActive()` returns true; scenario criteria (boss kills) render as a collapsible group below the M+ block
-- Events: `CHALLENGE_MODE_START`, `CHALLENGE_MODE_COMPLETED`, `CHALLENGE_MODE_DEATH_COUNT_UPDATED`, `WORLD_STATE_TIMER_START`, `WORLD_STATE_TIMER_STOP`
-- Cleans up on key completion via `QT.ResetChallengeMode()`
-
-## 008 - Delve UIWidget Support, Spacing Overhaul
-### Delve / Scenario Stage Block
-- **UIWidget container** — scenario stage blocks now embed a `UIWidgetContainerTemplate` registered to the step's `widgetSetID` from `C_Scenario.GetStepInfo()`. This renders Blizzard's own Delve-specific widgets (tier badge, death counter, affix icons, map thumbnail) inside the quest tracker, matching the default tracker's Delve stage block. When a `widgetSetID` is present, the decorative atlas + title text are hidden — the widget container replaces them entirely, same pattern as Blizzard's own `ScenarioObjectiveTrackerStageMixin:UpdateWidgetRegistration`.
-- **Companion level badge** — reparents Blizzard's `ScenarioObjectiveTracker.BottomWidgetContainerBlock.WidgetContainer` (widget set 252) into the scenario block below the objectives. This is Blizzard's real frame moved into our layout — we don't create a duplicate registration, avoiding the global-singleton conflict that would steal the widget set from Blizzard's tracker. The frame is returned to its original parent on block release.
-- **Widget set guard** — tracks `block._registeredWidgetSetID` so `RegisterForWidgetSet` is only called when the widget set ID actually changes, preventing intro/flash animations from replaying on every `Refresh` cycle.
-- **OnSizeChanged throttle** — widget container resize events trigger a throttled (0.1s) `ApplyLayout` instead of a full `Refresh`, breaking the infinite teardown→rebuild→resize→OnSizeChanged loop that was causing execution time limit errors and animation replay.
-- Falls back to the decorative `<textureKit>-trackerheader` atlas rendering for scenarios without a `widgetSetID` (dungeons, raids, M+, proving grounds).
-
-### Spacing Overhaul
-- `GROUP_GAP` increased from 8 to 18 — the vertical gap above each section header is now visually consistent and generous enough to separate tall Delve widget blocks from the section that follows.
-- `HEADER_AFTER_GAP` increased from 6 to 8 — the gap below a section header before its first block, slightly more breathing room.
-- Spacing is now uniform across all group transitions (Delves → Campaign, Campaign → Quests, Quests → Achievements, etc.).
-
-## 007 - Quest Tracker: Checkmarks, Progress Bars, Quest Item Buttons
-### Quest Tracker
-- **Green checkmarks on completed objectives** — finished quest and achievement objectives now show a green `ui-questtracker-tracker-check` icon in place of the "- " dash prefix, matching Blizzard's default tracker. The check icon is vertically centered on the first line of text and the objective text renders in the dimmed "Complete" color.
-- **Progress bar for percentage-based objectives** — quests with `objectiveType == "progressbar"` (like "Arcana siphoned 88%") now render a proper StatusBar below the objective text, matching the default tracker's blue fill bar. Percentage is sourced from `GetQuestProgressBarPercent(questID)` and displayed as centered text on the bar.
-- **Clickable quest item button** — quests that provide a usable special item (wands, torches, quest tools) now show a clickable item icon on the right edge of the quest title row. Uses Blizzard's own `QuestObjectiveItemButtonTemplate` for the icon frame, cooldown sweep, range indicator, and glow animation. Click calls `UseQuestLogSpecialItem(questLogIndex)`. Title text shrinks to avoid overlapping the item icon.
-- `GetQuestData` now captures `progressBarPct`, `questLogIndex`, `specialItem`, and `specialItemCharges` alongside the existing title/objectives/classification data
-- `CreateBlock` pre-builds a `StatusBar` (progress bar) and a `QuestObjectiveItemButtonTemplate` (item button) per block; both are hidden by default and shown/hidden per-quest in `PopulateBlock`
-- `ReleaseBlock` cleans up both new elements when blocks return to the pool
-
-## 006 - Developer Guide
-- Added `DEVELOPERS.md` — comprehensive guide for addon authors who want to register their own widgets with BazDrawer
-  - Full reference for the DockableWidget contract (id, label, designWidth, designHeight, frame, and optional hooks)
-  - Sections on design-width scaling, dynamic height, status text, per-widget settings, dock/undock callbacks, taint-safety rules, and standalone fallback pattern
-  - ~100-line Gold Widget reference implementation showing every hook and the full lifecycle from Build to Init
-
-## 005 - Zone Widget, Queue Eye, Custom Button Order, Zygor Compat
-### New Widgets
-- **Zone** widget — centered zone text in its own dedicated widget. Auto-colored by PVP status (gold neutral, green friendly, red hostile, orange contested, light blue sanctuary). Updates on all `ZONE_CHANGED*` events.
-
-### Minimap Buttons Widget
-- **Queue eye adoption** — Blizzard's `QueueStatusButton` (the dungeon/raid/PVP LFG eye) is now captured into the button grid when you queue. It appears dynamically on queue and disappears when you leave, rescaled to match the other button sizes while preserving its glow and click behavior.
-- **Fixed slot grid** — refactored from computed SetPoint offsets to pre-built slot frames. Each adopted button is reparented into its slot and anchored to its center, making positioning immune to Blizzard SetPoint clobbering and eliminating a whole class of layout race conditions.
-- **Custom button order** — new "Button Order" section on the widget settings page with Move Up / Move Down controls for each adopted button. The order is persisted per-character and honored by the grid layout; new buttons are auto-appended. Friendly names strip the `LibDBIcon10_` prefix and CamelCase-split (e.g. `LibDBIcon10_BazNotificationCenter` → `Baz Notification Center`).
-- **Queue eye visibility hooks** — `hooksecurefunc` on `QueueStatusButton:Show/Hide` triggers immediate relayout when Blizzard flips queue state, with a `layoutInProgress` reentry guard to prevent recursion.
-
-### Minimap Info Bar
-- **Zone text moved out** — the scrolling zone label has been removed from the Info Bar (it lives in the new Zone widget now). The Info Bar is now a clean right-cluster of Clock + Calendar + Tracking with empty left space reserved for future info buttons.
-- **Calendar hover color** — the day-of-month number tints from `#A29580` tan to `#BA9B51` warm gold on mouseover.
-
-### Quest Tracker
-- **POI-to-title padding** — `POI_GAP` bumped from 4px to 8px so the super-track icons aren't flush against the quest title text.
-- **Objective right-edge padding** — new `OBJ_RIGHT_PAD = 10` constant reserves breathing room between objective text and the drawer's right border. Applied to both objective lines and quest/achievement titles so long wrapped text doesn't hug the edge.
-
-### Third-party Compatibility
-- **Zygor Guides Viewer shim** (`Compat.lua`) — pre-hooks `ZGV.NotificationCenter.UpdatePosition` with a nil-guard that defers and retries when `ZygorGuidesViewerMapIcon:GetLeft()` returns nil during Zygor's threaded `NC2 startup` phase. Fixes "attempt to compare number with nil" that happens when BazDrawer reparents the minimap before Zygor's anchor chain has resolved. Installs only when Zygor is loaded; uses `ADDON_LOADED` so load order doesn't matter.
-
-### Assorted polish
-- Zone widget padding tightened — auto-sizes to actual font string height instead of the inflated hardcoded minimum.
-
-## 004 - CurseForge Project Metadata
-- Added `X-Curse-Project-ID: 1511379` and `X-Website` TOC headers so the BigWigs packager can upload releases to CurseForge automatically
-
-## 003 - Real Drawer Icon
-- Switched both the addon settings icon and the minimap button icon to the Suramar Dresser FileDataID (7416769) — an actual in-game drawer model instead of the previous `INV_Misc_Drawer_02` path that didn't resolve to any real texture
-
-## 002 - Icon Fix
-- Fixed missing in-game settings icon — TOC now references `Interface\Icons\INV_Misc_Drawer_02` (the same wooden drawer icon used by the minimap button) instead of a bundled PNG path that didn't exist
-
-## 001 - Initial Release
-- Slide-out side drawer addon for the Baz Suite
-- Full-height side panel with metal pull-tab handle, switchable between left and right edges
-- Configurable width with uniform widget scaling
-- Smart fade controller — backdrop, border, tab, and chrome fade as a unit while widget content stays at full opacity
-- Edge hot zone re-reveals the tab when the drawer is collapsed
-- Lock system — padlock icon hides chrome, freezes layout, tightens widget spacing, and disables fade controls
-- Per-widget collapse via clickable title bar chevron
-- Drag-to-reorder widgets via Move Up / Move Down on each widget's settings page
-- Floating mode — detach any widget from the drawer and place it via Edit Mode
-- Per-widget settings + global override system via BazCore's CreateGlobalOptionsPage
-- Module enable/disable via BazCore's CreateModulesPage
-
-### Built-in Widgets
-- **Quest Tracker** — full Blizzard objective tracker replica with Dungeon/Scenario, Campaign, Questlines, Legendary, Callings, Quests, and Achievements sections; collapsible group headers using Blizzard atlases; native POI buttons with super-track integration; item-level pagination; TomTom waypoint integration; option to hide Blizzard's default tracker
-- **Repair** — three-column layout (paper doll / damaged-slot list / durability percent) with three paper-doll modes (custom icon grid, native DurabilityFrame, none); robust suppression of Blizzard's auto-popup durability figure
-- **Minimap** — reparents the real Blizzard minimap into the drawer at fixed scale
-- **Minimap Buttons** — adopts LibDBIcon and other addon-registered minimap buttons into a tidy grid
-- **Minimap Info Bar** — zone text + scaled clock + day-of-month calendar proxy + native tracking dropdown in one bar
-
-### Quest Tracker — Dungeon Section
-- Decorative stage block using Blizzard's `<textureKit>-trackerheader` atlas
-- Graphic orb bullets via `ui-questtracker-objective-nub`, swapped to `ui-questtracker-tracker-check` on completed criteria
-- "0/1 Boss Name defeated" format matching the default tracker
-- Dynamic section label ("Dungeon" / scenario name / "Proving Grounds") based on scenario type
-- Auto-hide when leaving the instance, empty sections never emit a header
-
-### Developer
-- BazCore DockableWidget API (`RegisterDockableWidget`, `UnregisterDockableWidget`, `RegisterDockableWidgetCallback`)
-- Standard BazCore landing page, settings, modules, global options, widgets, and profiles subcategories
-- Comprehensive in-game user manual on the landing page
+- **Micro Menu widget** — Blizzard's micro menu button row, scaled to
+  the drawer width with optional fade-when-not-hovered.
+- **Nudge controls** in Edit Mode — pixel-precise position buttons on
+  every floating widget.
+- **Zygor + TomTom waypoints** wired into the Quest Tracker.
+- **Quest Tracker polish** — Blizzard-matching progress bars, green
+  checkmarks on complete objectives, click-to-use quest items.
+- **Auto-complete quest popup** — quests ready to turn in show a
+  pulsing icon you can click to complete.
+- **Bonus Objectives** group at the bottom of the tracker.
+- **Mythic+ Challenge Mode** dedicated tracker block — live countdown,
+  keystone level, affix icons with tooltips, death counter.
+- **Delve / Scenario** Blizzard widgets (tier badge, death counter,
+  affix icons, map thumbnail) embedded directly in the tracker.
+- **Minimap Buttons** widget with persistent queue-eye capture and
+  whitelist-based adoption (no more invisible HandyNotes pins).
+- **Quest Tracker modular refactor** — internal cleanup, no behaviour
+  change.

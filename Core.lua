@@ -629,12 +629,49 @@ function addon:IsWidgetEnabled(id)
 end
 
 function addon:SetWidgetEnabled(id, val)
+    local wasEnabled = self:IsWidgetEnabled(id)
     local map = self:GetSetting("widgetEnabled") or {}
     -- Always record an explicit true/false now that "unset" has a
     -- per-profile meaning - leaving nil would make the value depend
     -- on strict mode instead of reflecting the user's choice.
     map[id] = val and true or false
     self:SetSetting("widgetEnabled", map)
+
+    -- When transitioning from disabled -> enabled, materialise any
+    -- wildcard drawers (widgets = "*") into explicit lists EXCLUDING
+    -- this widget. Without this the wildcard would auto-include the
+    -- newly-enabled widget in every drawer, robbing the user of the
+    -- chance to opt in per-drawer. With explicit lists the per-drawer
+    -- toggle starts OFF and the user adds the widget on the Drawers
+    -- page where they want it.
+    if val and not wasEnabled then
+        self:_MaterializeWildcardDrawers(id)
+    end
+end
+
+-- Convert any drawer's `widgets = "*"` wildcard into an explicit list
+-- of currently-enabled widget IDs, optionally excluding `excludeId`.
+-- Used when a new widget is enabled so it doesn't auto-appear in
+-- existing wildcard drawers.
+function addon:_MaterializeWildcardDrawers(excludeId)
+    local drawers = self:GetSetting("drawers") or {}
+    local changed = false
+    local allWidgets = BazCore.GetDockableWidgets and BazCore:GetDockableWidgets() or {}
+    for _, def in pairs(drawers) do
+        if def.widgets == "*" then
+            local explicit = {}
+            for _, w in ipairs(allWidgets) do
+                if w.id ~= excludeId and self:IsWidgetEnabled(w.id) then
+                    explicit[#explicit + 1] = w.id
+                end
+            end
+            def.widgets = explicit
+            changed = true
+        end
+    end
+    if changed then
+        self:SetSetting("drawers", drawers)
+    end
 end
 
 -- Apply first-run defaults for a fresh profile.
