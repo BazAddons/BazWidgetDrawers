@@ -2,6 +2,10 @@
 
 > Renamed from BazDrawer to BazWidgetDrawers in v016. Settings are migrated automatically.
 
+## 052 - QuestTracker: ignore quest clicks during combat
+- Clicking a quest title in the QuestTracker widget while in combat triggered `ADDON_ACTION_BLOCKED` errors. The chain: click → `SetSuperTrackedQuestID` (or right-click → `RemoveQuestWatch`, or the map open path) → fires `Supertracking.OnChanged` / `QUEST_WATCH_LIST_CHANGED` → Blizzard's `QuestDataProvider:RefreshAllData` walks every quest → `AcquirePin` → `CheckMouseButtonPassthrough` → `SetPassThroughButtons`, which is taint-blocked because BazMap (or any other map addon) has touched WorldMapFrame's attribute table. The click never accomplishes anything, just spams BugSack.
+- Now the click handler bails on `InCombatLockdown()`. Re-click after combat ends.
+
 ## 051 - Per-drawer widget list respects global enable
 - The Widgets subcategory enables/disables widgets globally; the Drawers subcategory picks which enabled widgets appear in each drawer. Previously the per-drawer list showed every registered widget regardless of its global state, so a globally-disabled widget still appeared as a toggle on each drawer's page.
 - Per-drawer widget toggle list now filters by `addon:IsWidgetEnabled(id)` for both the registered widgets and the dormant-widget fallback. Globally-disabled widgets are hidden from the drawer list entirely.

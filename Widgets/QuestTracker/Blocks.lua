@@ -101,6 +101,20 @@ function QT.CreateBlock()
         if kind == "scenario" then return end
         if not block._questID then return end
 
+        -- Combat guard. Every action this handler performs ends up
+        -- triggering Blizzard's QuestDataProvider:RefreshAllData
+        -- (via Supertracking.OnChanged for SetSuperTrackedQuestID,
+        -- via QUEST_WATCH_LIST_CHANGED for RemoveQuestWatch, via the
+        -- map open path for ShowQuestDetails). Refresh ends up calling
+        -- SetPassThroughButtons on quest pins, which is taint-blocked
+        -- during combat once BazMap (or any other map addon) has
+        -- touched WorldMapFrame's attribute table. The block fails
+        -- with ADDON_ACTION_BLOCKED and the click does nothing useful
+        -- - so we just bail in combat. A right-click in combat to
+        -- abandon a watch is an unusual case; the user can re-click
+        -- after combat.
+        if InCombatLockdown() then return end
+
         if kind == "achievement" then
             if button == "LeftButton" then
                 if not _G.AchievementFrame and UIParentLoadAddOn then
