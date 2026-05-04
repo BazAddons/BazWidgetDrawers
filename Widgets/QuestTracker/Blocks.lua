@@ -151,17 +151,12 @@ function QT.CreateBlock()
             if C_SuperTrack and C_SuperTrack.SetSuperTrackedQuestID then
                 C_SuperTrack.SetSuperTrackedQuestID(block._questID)
             end
-            -- Toggle behaviour: clicking a quest that's already open
-            -- in the quest log panel closes the map. Clicking a
-            -- different quest switches to it. Clicking with the map
-            -- closed opens it on the quest log panel showing this
-            -- quest's details.
-            --
-            -- We deliberately avoid QuestMapFrame_OpenToQuestDetails
-            -- and HideUIPanel because they route through ShowUIPanel/
-            -- HideUIPanel, which can fail when BazMap disables
-            -- UIPanelLayout on WorldMapFrame (lets the map be freely
-            -- positioned). Direct Show/Hide is BazMap-safe.
+            -- Toggle behaviour: clicking the quest that's currently
+            -- showing in the detail panel closes the whole map. Any
+            -- other click routes through Blizzard's standard tracker-
+            -- click entry point so the side panel and detail view
+            -- come up exactly the way they do from Blizzard's own
+            -- objective tracker.
             local mapOpen = WorldMapFrame and WorldMapFrame:IsShown()
             local details = QuestMapFrame and QuestMapFrame.DetailsFrame
             local showingThisQuest = mapOpen
@@ -171,10 +166,18 @@ function QT.CreateBlock()
             if showingThisQuest then
                 WorldMapFrame:Hide()
             else
-                if not mapOpen then WorldMapFrame:Show() end
-                if QuestMapFrame_ShowQuestDetails then
-                    QuestMapFrame_ShowQuestDetails(block._questID)
-                elseif QuestMapFrame_OpenToQuestDetails then
+                -- Use Blizzard's proper click-tracked-quest entry point.
+                -- This is exactly what Blizzard's own objective tracker
+                -- calls on a quest-title click, so anything they do
+                -- (open the side panel, set the detail mode, focus the
+                -- supertracked quest, etc.) Just Works. Earlier versions
+                -- of this widget tried to avoid ShowUIPanel by calling
+                -- WorldMapFrame:Show + QuestMapFrame_ShowQuestDetails
+                -- directly, but that bypasses the side-panel show flow
+                -- entirely (you got the map but not the quest log) -
+                -- and once BazMap stopped routing through UIPanelLayout
+                -- properly, ShowUIPanel on a detached frame is safe.
+                if QuestMapFrame_OpenToQuestDetails then
                     QuestMapFrame_OpenToQuestDetails(block._questID)
                 end
             end

@@ -2,6 +2,14 @@
 
 > Renamed from BazDrawer to BazWidgetDrawers in v016. Settings are migrated automatically.
 
+## 057 — Quest tracker click opens the quest log properly
+
+Clicking a quest in the Quest Tracker widget when the map was closed
+used to open just the world map without the quest log panel — so you'd
+see the map but no quest details. The widget now opens the quest log
+side panel alongside the map, the same way clicking a quest in
+Blizzard's objective tracker does.
+
 ## 056 — User guide refresh
 
 The in-game User Manual now has dedicated pages for Auto-Switch
