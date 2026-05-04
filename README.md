@@ -2,7 +2,7 @@
 
 # BazWidgetDrawers
 
-![WoW](https://img.shields.io/badge/WoW-12.0_Midnight-blue) ![License](https://img.shields.io/badge/License-GPL_v2-green) ![Version](https://img.shields.io/github/v/tag/bazsec/BazWidgetDrawers?label=Version&color=orange)
+![Part of BazAddons](https://img.shields.io/badge/Part_of-BazAddons-b8924a?labelColor=2a2519) ![WoW](https://img.shields.io/badge/WoW-12.0_Midnight-blue) ![License](https://img.shields.io/badge/License-GPL_v2-green) ![Version](https://img.shields.io/github/v/tag/BazAddons/BazWidgetDrawers?label=Version&color=orange)
 
 A full-height slide-out side drawer for World of Warcraft that hosts a vertical stack of dockable widgets and fades out of the way when you're not using it.
 
@@ -173,7 +173,7 @@ LBW:RegisterDormantWidget(widgetDef, {
 })
 ```
 
-See the [LibBazWidget-1.0 README](https://github.com/bazsec/LibBazWidget) and the [BazWidgets source](https://github.com/bazsec/BazWidgets) for reference implementations.
+See the [LibBazWidget-1.0 README](https://github.com/BazAddons/LibBazWidget) and the [BazWidgets source](https://github.com/BazAddons/BazWidgets) for reference implementations.
 
 ***
 
