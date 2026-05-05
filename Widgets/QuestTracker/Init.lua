@@ -395,11 +395,11 @@ function QT.Refresh()
 
     QT._count = blockCount
 
-    -- Clamp scrollIndex
+    -- Clamp scrollIndex to the largest value that still leaves at least
+    -- one off-screen item. If everything fits, max is 0 (no scrolling).
     if QT.scrollIndex == nil then QT.scrollIndex = 0 end
-    if QT.scrollIndex > math.max(0, #QT.items - 1) then
-        QT.scrollIndex = math.max(0, #QT.items - 1)
-    end
+    local maxScroll = QT.ComputeMaxScrollIndex()
+    if QT.scrollIndex > maxScroll then QT.scrollIndex = maxScroll end
 
     QT.ApplyLayout()
 
@@ -472,12 +472,41 @@ end
 -- Scroll
 ---------------------------------------------------------------------------
 
+-- Largest scrollIndex that still leaves something off-screen below the
+-- viewport. If the entire item list fits in maxHeight, this returns 0
+-- and scrolling becomes a no-op (rejecting wheel events that would
+-- only push visible items off the top with nothing to bring in below).
+function QT.ComputeMaxScrollIndex()
+    if not QT.items or #QT.items == 0 then return 0 end
+    local maxHeight = addon:GetWidgetSetting(C.WIDGET_ID, "maxHeight", C.MAX_HEIGHT_DEFAULT)
+
+    -- Walk items from the bottom up, accumulating the rendered height
+    -- they would occupy if shown together (mirrors ApplyLayout's
+    -- y-accumulator: top/bottom PAD + topPad + height per item, plus
+    -- one gap between each adjacent pair). The first item that pushes
+    -- the running total over maxHeight is the cutoff: from there
+    -- upward, the user still has off-screen content below at that
+    -- scroll position, so the max valid scrollIndex is its index.
+    local accumulated = C.PAD * 2
+    for i = #QT.items, 1, -1 do
+        local item = QT.items[i]
+        local addH = (item.topPad or 0) + (item.height or 0)
+        if i < #QT.items then
+            addH = addH + (item.gap or 0)
+        end
+        accumulated = accumulated + addH
+        if accumulated > maxHeight then
+            return i
+        end
+    end
+    return 0
+end
+
 function QT.Scroll(delta)
+    local maxScroll = QT.ComputeMaxScrollIndex()
     local newIdx = (QT.scrollIndex or 0) - delta
     if newIdx < 0 then newIdx = 0 end
-    if newIdx > math.max(0, #QT.items - 1) then
-        newIdx = math.max(0, #QT.items - 1)
-    end
+    if newIdx > maxScroll then newIdx = maxScroll end
     if newIdx == QT.scrollIndex then return end
     QT.scrollIndex = newIdx
     QT.ApplyLayout()

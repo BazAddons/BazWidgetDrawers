@@ -2,6 +2,17 @@
 
 > Renamed from BazDrawer to BazWidgetDrawers in v016. Settings are migrated automatically.
 
+## 059 — Quest Tracker stops scrolling when everything already fits
+
+The Quest Tracker would still respond to mouse-wheel scrolling even
+when every quest, achievement, and recipe already fit inside the
+widget's allotted height — the scroll bound was just "items count
+minus one," which let you push visible content off the top with
+nothing to scroll up into. The bound is now computed against the
+actual rendered height: if everything fits, scroll is a no-op; if
+not, you can only scroll down far enough that the last item is the
+last visible one.
+
 ## 058 — Quest Tracker shows tracked recipes
 
 Tracking a recipe from the Professions panel now adds it to the
