@@ -212,11 +212,18 @@ function QT.CreateBlock()
         if title.text then title.text:SetTextColor(QT.GetTitleColor()) end
     end)
 
-    -- Quest item button
+    -- Quest item button. The template defaults to a 26x26 button with
+    -- chrome (border + highlight textures) sized for that footprint.
+    -- SetSize alone would shrink the icon texture but leave the chrome
+    -- at 26 - so the visible button "frame" appears bigger than the
+    -- icon. Scaling the whole button proportionally shrinks chrome +
+    -- icon together; we use a scale that lands the button at our
+    -- target SPECIAL_ITEM_SIZE (matching the title row's height).
     local itemOk, itemBtn = pcall(CreateFrame, "Button", nil, block, "QuestObjectiveItemButtonTemplate")
     if itemOk and itemBtn then
-        itemBtn:SetPoint("RIGHT", block, "RIGHT", 0, 0)
-        itemBtn:SetSize(26, 26)
+        itemBtn:SetSize(C.SPECIAL_ITEM_TEMPLATE_SIZE, C.SPECIAL_ITEM_TEMPLATE_SIZE)
+        itemBtn:SetScale(C.SPECIAL_ITEM_SIZE / C.SPECIAL_ITEM_TEMPLATE_SIZE)
+        itemBtn:SetPoint("TOPRIGHT", block, "TOPRIGHT", -C.SPECIAL_ITEM_RIGHT_PAD, 0)
         itemBtn:Hide()
         -- The block's title Button spans the full width including
         -- under the item icon, intercepting clicks before they reach
@@ -693,6 +700,17 @@ function QT.PopulateBlock(block, quest)
         objWidth = objWidth - (C.NUB_SIZE + C.NUB_TEXT_GAP)
     end
 
+    -- Special-item icon (the clickable usable item icon) is anchored
+    -- below to the right side of the title. Reserve horizontal space
+    -- on the FIRST objective line so the text doesn't run under the
+    -- icon. Subsequent objective lines have no icon above them and
+    -- stay at full width.
+    local hasSpecialItem = quest.kind == "quest"
+        and quest.questLogIndex and quest.specialItem and not isScenario
+    local SPECIAL_ITEM_RESERVE = C.SPECIAL_ITEM_SIZE
+        + C.SPECIAL_ITEM_RIGHT_PAD
+        + C.SPECIAL_ITEM_TEXT_GAP
+
     local lineGap = isScenario and C.SCENARIO_OBJ_LINE_GAP or C.OBJ_LINE_GAP
     local objTotalH = anchorGap
 
@@ -765,11 +783,17 @@ function QT.PopulateBlock(block, quest)
             line.text:SetPoint("TOPLEFT", line, "TOPLEFT", C.NUB_SIZE + C.NUB_TEXT_GAP, 0)
         end
 
+        -- The special-item icon hovers over the FIRST objective row
+        -- only (it's anchored level with the title). Carve out room
+        -- on that row's text so the icon doesn't sit on top of it.
+        local iconReserve = (hasSpecialItem and i == 1)
+            and SPECIAL_ITEM_RESERVE or 0
+
         if isScenario then
             PositionCheckOrNub(obj.finished
                 and "ui-questtracker-tracker-check"
                 or  "ui-questtracker-objective-nub")
-            line.text:SetWidth(objWidth)
+            line.text:SetWidth(objWidth - iconReserve)
             line.text:SetText(obj.text or "")
         elseif obj.hideDash then
             -- Completion lines (e.g., "Return to NPC X", "Ready for
@@ -778,16 +802,16 @@ function QT.PopulateBlock(block, quest)
             -- OBJECTIVE_DASH_STYLE_HIDE flag.
             line.icon:Hide()
             line.text:SetPoint("TOPLEFT", line, "TOPLEFT", 0, 0)
-            line.text:SetWidth(objWidth)
+            line.text:SetWidth(objWidth - iconReserve)
             line.text:SetText(obj.text or "")
         elseif obj.finished then
             PositionCheckOrNub("ui-questtracker-tracker-check")
-            line.text:SetWidth(objWidth - C.NUB_SIZE - C.NUB_TEXT_GAP)
+            line.text:SetWidth(objWidth - C.NUB_SIZE - C.NUB_TEXT_GAP - iconReserve)
             line.text:SetText(obj.text or "")
         else
             line.icon:Hide()
             line.text:SetPoint("TOPLEFT", line, "TOPLEFT", 0, 0)
-            line.text:SetWidth(objWidth)
+            line.text:SetWidth(objWidth - iconReserve)
             -- Keep the inline "(XX%)" - Blizzard's default tracker
             -- shows it both in the objective text and on the bar.
             line.text:SetText("- " .. (obj.text or ""))
@@ -878,18 +902,29 @@ function QT.PopulateBlock(block, quest)
     -- Quest special item button
     if block.itemButton then
         if quest.questLogIndex and quest.specialItem and not isScenario then
+            -- Size in template (unscaled) coords; SetScale at creation
+            -- shrinks the visible button to SPECIAL_ITEM_SIZE.
+            block.itemButton:SetSize(C.SPECIAL_ITEM_TEMPLATE_SIZE,
+                                     C.SPECIAL_ITEM_TEMPLATE_SIZE)
             if block.itemButton.SetUp then
                 block.itemButton:SetUp(quest.questLogIndex)
             else
                 SetItemButtonTexture(block.itemButton, quest.specialItem)
             end
             block.itemButton:ClearAllPoints()
-            block.itemButton:SetPoint("RIGHT", block.title, "RIGHT", 0, 0)
+            block.itemButton:SetPoint("TOPRIGHT", block.title, "TOPRIGHT",
+                -C.SPECIAL_ITEM_RIGHT_PAD, 0)
             block.itemButton:Show()
-            local iconW = 26 + 4
-            block.title.text:SetPoint("RIGHT", block.title, "RIGHT", -iconW, 0)
+            block.title.text:SetPoint("RIGHT", block.title, "RIGHT",
+                -(C.SPECIAL_ITEM_SIZE + C.SPECIAL_ITEM_RIGHT_PAD
+                  + C.SPECIAL_ITEM_TEXT_GAP), 0)
         else
             block.itemButton:Hide()
+            -- Reset the title text's right edge: a previous quest in
+            -- this reused block may have narrowed it to make room for
+            -- the icon. Without this, quests that don't have a special
+            -- item end up with their title artificially shortened.
+            block.title.text:SetPoint("RIGHT", block.title, "RIGHT", 0, 0)
         end
     end
 

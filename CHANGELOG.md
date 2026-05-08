@@ -2,6 +2,19 @@
 
 > Renamed from BazDrawer to BazWidgetDrawers in v016. Settings are migrated automatically.
 
+## 060 — Quest Tracker: clean up the special-item icon
+
+Quests that come with a usable item (a turn-in object, a quest
+trinket, etc.) now show that item icon at the size of the quest
+title row instead of crowding into the description text below. The
+button's chrome scales with the icon so the bevel + hover outline
+stay proportional, and the description's first line carves out
+horizontal space for the icon so the text doesn't run under it.
+
+Also fixes a related glitch where reusing a tracker block for a
+quest WITHOUT an item left the title artificially shortened from
+the previous quest.
+
 ## 059 — Quest Tracker stops scrolling when everything already fits
 
 The Quest Tracker would still respond to mouse-wheel scrolling even

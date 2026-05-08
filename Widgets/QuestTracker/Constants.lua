@@ -41,6 +41,22 @@ C.SCENARIO_OBJ_GAP       = 6
 C.SCENARIO_OBJ_LINE_GAP  = 4
 C.NUB_SIZE           = 14
 C.NUB_TEXT_GAP       = 5
+
+-- Special-item button (the clickable usable item icon on a quest).
+--
+--   TEMPLATE_SIZE   QuestObjectiveItemButtonTemplate's natural size
+--                   (button + chrome textures are baked at this).
+--   SIZE            visible edge length in px after scaling. Matches
+--                   TITLE_HEIGHT so the whole button fits inside the
+--                   title row without dipping into the description.
+--   RIGHT_PAD       inset from the block's right edge so the icon
+--                   doesn't sit flush against the chrome.
+--   TEXT_GAP        horizontal breathing room between the icon's left
+--                   edge and the title / first-objective text.
+C.SPECIAL_ITEM_TEMPLATE_SIZE = 26
+C.SPECIAL_ITEM_SIZE          = C.TITLE_HEIGHT
+C.SPECIAL_ITEM_RIGHT_PAD     = 4
+C.SPECIAL_ITEM_TEXT_GAP      = 6
 C.HEADER_HEIGHT      = 32
 C.TOP_HEADER_HEIGHT  = 32
 C.MIN_HEIGHT         = C.PAD * 2 + C.TOP_HEADER_HEIGHT
