@@ -229,6 +229,27 @@ function MinimapButtonsWidget:AdoptButton(btn, opts)
         btn:SetScale(1)
         btn:SetSize(BUTTON_SIZE, BUTTON_SIZE)
     end
+
+    -- Some addons re-anchor their own LibDBIcon button when the user
+    -- activates them (VaultLoom is one example) - the button click
+    -- triggers internal addon code that resets the icon's position
+    -- back to its saved Minimap angle, pulling it out of our slot.
+    --
+    -- Hook OnClick only. We schedule two delayed re-layouts:
+    --   * 0.05s  - catches addons that re-anchor synchronously in
+    --              their OnClick handler.
+    --   * 0.30s  - catches addons that defer the re-anchor to a
+    --              later frame (timers, animations, ADDON_LOADED-ish
+    --              event handlers triggered by the click).
+    -- Two timers is bounded and cheap. We deliberately do NOT hook
+    -- SetPoint / SetParent here - that path interacts badly with
+    -- LibDBIcon's startup churn and crashed the client when we tried
+    -- it previously.
+    btn:HookScript("OnClick", function()
+        C_Timer.After(0.05, function() MinimapButtonsWidget:LayoutButtons() end)
+        C_Timer.After(0.30, function() MinimapButtonsWidget:LayoutButtons() end)
+    end)
+
     -- Actual slot assignment + anchor happens in LayoutButtons
 end
 
