@@ -153,6 +153,18 @@ addon = BazCore:RegisterAddon(ADDON_NAME, {
         -- registered yet at onReady time.
         local drawers = self:GetSetting("drawers")
         if not drawers or not next(drawers) then
+            -- Seed the default drawer's widget order. If the user has
+            -- legacy single-drawer order data, preserve it; otherwise
+            -- start with the curated default top-to-bottom order.
+            local existingOrder = self:GetSetting("widgetOrder")
+            local seedOrder
+            if existingOrder and next(existingOrder) then
+                seedOrder = existingOrder
+            else
+                seedOrder = {}
+                for k, v in pairs(DEFAULT_WIDGET_ORDER) do seedOrder[k] = v end
+            end
+
             self:SetSetting("drawers", {
                 default = {
                     label = "Default",
@@ -162,7 +174,7 @@ addon = BazCore:RegisterAddon(ADDON_NAME, {
                     autoSwitch = nil,
                     autoSwitchEnabled = false,
                     widgets = "*",  -- special: means "all registered widgets"
-                    widgetOrder = self:GetSetting("widgetOrder") or {},
+                    widgetOrder = seedOrder,
                     widgetCollapsed = self:GetSetting("widgetCollapsed") or {},
                 },
             })
@@ -609,9 +621,21 @@ end
 -- Widgets settings. Existing profiles are unaffected - see
 -- widgetEnableStrict logic below.
 local DEFAULT_ENABLED_WIDGETS = {
-    bazdrawer_zonetext     = true,
-    bazdrawer_minimap      = true,
-    bazdrawer_questtracker = true,
+    bazdrawer_zonetext        = true,
+    bazdrawer_minimap         = true,
+    bazdrawer_minimapbuttons  = true,
+    bazdrawer_questtracker    = true,
+}
+
+-- Default top-to-bottom order applied to a fresh "default" drawer
+-- on first install. Without this, GetSortedWidgets falls back to
+-- alphabetical-by-id, which doesn't match the curated layout. Gaps
+-- of 10 leave room to slot extra widgets between defaults later.
+local DEFAULT_WIDGET_ORDER = {
+    bazdrawer_zonetext        = 10,
+    bazdrawer_minimap         = 20,
+    bazdrawer_minimapbuttons  = 30,
+    bazdrawer_questtracker    = 40,
 }
 
 function addon:IsWidgetEnabled(id)
