@@ -154,11 +154,7 @@ local function AttachFrames()
     local function AttachClock()
         local clock = TimeManagerClockButton
         if not clock then
-            if C_AddOns and C_AddOns.LoadAddOn then
-                C_AddOns.LoadAddOn("Blizzard_TimeManager")
-            elseif LoadAddOn then
-                LoadAddOn("Blizzard_TimeManager")
-            end
+            C_AddOns.LoadAddOn("Blizzard_TimeManager")
             clock = TimeManagerClockButton
         end
         if not clock then

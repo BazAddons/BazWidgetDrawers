@@ -65,7 +65,7 @@ local function InstallZygorNCFix()
         -- Call the original. Wrap in pcall so any other race-condition
         -- nils from the Zygor init phase don't propagate back out to
         -- their error handler and show the user a huge stack trace.
-        local ok, err = pcall(origUpdatePosition, self, ...)
+        local ok = pcall(origUpdatePosition, self, ...)
         if not ok then
             C_Timer.After(0.5, function()
                 pcall(NC.UpdatePosition, NC)

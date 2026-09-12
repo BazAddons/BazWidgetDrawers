@@ -94,7 +94,7 @@ local function UpdateQueue()
     Q.queuedTime = GetTime() - Q.queueStartTime
 
     local hasData, _, tankNeeds, healerNeeds, dpsNeeds,
-          totalTanks, totalHealers, totalDPS, instanceType, _,
+          totalTanks, totalHealers, totalDPS, _, _,
           instanceName, averageWait, _, _, _,
           myWait = GetLFGQueueStats(cat, GetActiveQueueID(cat))
 

@@ -13,8 +13,8 @@ function QT.GetScenarioData()
     end
 
     if not C_Scenario.GetInfo then return nil end
-    local scenarioName, currentStage, numStages, flags, _, _, _, xp, money,
-          scenarioType, _, textureKit, scenarioID = C_Scenario.GetInfo()
+    local scenarioName, currentStage, numStages, _, _, _, _, _, _,
+          scenarioType, _, textureKit = C_Scenario.GetInfo()
     if not scenarioName then return nil end
 
     local stageName, stageDescription, numCriteria, widgetSetID

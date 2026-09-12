@@ -82,7 +82,7 @@ function QT.GetQuestData(questID)
         questLogIndex = C_QuestLog.GetLogIndexForQuestID(questID)
     end
     if questLogIndex and GetQuestLogSpecialItemInfo then
-        local ok, link, item, charges = pcall(GetQuestLogSpecialItemInfo, questLogIndex)
+        local ok, _, item, charges = pcall(GetQuestLogSpecialItemInfo, questLogIndex)
         if ok and item then
             specialItem        = item
             specialItemCharges = charges
@@ -147,7 +147,7 @@ function QT.GetBonusObjectives()
         local isWatched = QuestUtils_IsQuestWatched and QuestUtils_IsQuestWatched(questID)
 
         if not isWorldQuest and not isWatched then
-            local isInArea, isOnMap, numObjectives, taskName = GetTaskInfo(questID)
+            local isInArea, _, numObjectives, taskName = GetTaskInfo(questID)
             if isInArea and numObjectives and numObjectives > 0 then
                 local objectives = C_QuestLog.GetQuestObjectives and C_QuestLog.GetQuestObjectives(questID) or {}
                 local isComplete = C_QuestLog.IsComplete and C_QuestLog.IsComplete(questID) or false

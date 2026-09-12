@@ -193,55 +193,6 @@ local function GetSettingsOptionsTable()
     }
 end
 
--- Build a combined list of all widgets (active + dormant inactive),
--- sorted by saved order. Used for the settings list and reorder ops.
-local function GetAllWidgetsSorted()
-    local sorted = addon:GetSortedWidgets() or {}
-    local seen = {}
-    for _, w in ipairs(sorted) do seen[w.id] = true end
-
-    -- Append dormant (inactive) widgets
-    local LBW = LibStub and LibStub("LibBazWidget-1.0", true)
-    if LBW and LBW.dormant then
-        for id, entry in pairs(LBW.dormant) do
-            if not entry.active and not seen[id] then
-                sorted[#sorted + 1] = entry.widget
-            end
-        end
-    end
-
-    -- Re-sort the full list by saved order so dormant widgets
-    -- appear in their correct position, not just appended
-    table.sort(sorted, function(a, b)
-        local oa = addon:GetWidgetOrder(a.id) or 10000
-        local ob = addon:GetWidgetOrder(b.id) or 10000
-        if oa == ob then return (a.id or "") < (b.id or "") end
-        return oa < ob
-    end)
-
-    return sorted
-end
-
--- Move a widget up/down in the combined list (includes dormant)
-local function MoveWidgetInFullList(id, direction)
-    local sorted = GetAllWidgetsSorted()
-    for i, w in ipairs(sorted) do
-        if w.id == id then
-            local swapIdx = i + direction
-            if swapIdx >= 1 and swapIdx <= #sorted then
-                sorted[i], sorted[swapIdx] = sorted[swapIdx], sorted[i]
-                for j, sw in ipairs(sorted) do
-                    addon:SetWidgetOrder(sw.id, j)
-                end
-                if addon.WidgetHost and addon.WidgetHost.Reflow then
-                    addon.WidgetHost:Reflow()
-                end
-            end
-            return
-        end
-    end
-end
-
 ---------------------------------------------------------------------------
 ---------------------------------------------------------------------------
 -- Compose a widget's display label with status + tag badges
@@ -530,36 +481,6 @@ local function GetGlobalOptionsTable()
         text = "Enable a specific override to force its value across all widgets. Disable the override to return each widget to its own per-widget setting.",
     }
     return page
-end
-
----------------------------------------------------------------------------
--- Modules subcategory (flat enable/disable toggles for each widget)
----------------------------------------------------------------------------
-
-local function GetModulesOptionsTable()
-    return BazCore:CreateModulesPage("BazWidgetDrawers", {
-        title = "Enable/Disable",
-        description = "Enable or disable widgets. Disabled widgets are hidden entirely - not docked in the drawer, not floating, not visible anywhere. Re-enable to restore.",
-        getModules = function()
-            local list = {}
-            local widgets = BazCore.GetDockableWidgets and BazCore:GetDockableWidgets() or {}
-            for _, w in ipairs(widgets) do
-                table.insert(list, { id = w.id, name = w.label or w.id })
-            end
-            return list
-        end,
-        isEnabled = function(id) return addon:IsWidgetEnabled(id) end,
-        setEnabled = function(id, val)
-            if addon.WidgetHost and addon.WidgetHost.SetWidgetEnabled then
-                addon.WidgetHost:SetWidgetEnabled(id, val)
-            else
-                addon:SetWidgetEnabled(id, val)
-            end
-            -- Refresh the Drawers page so the per-drawer widget list
-            -- reflects the new enabled set (added/removed entries).
-            BazCore:RefreshOptions("BazWidgetDrawers-Drawers")
-        end,
-    })
 end
 
 ---------------------------------------------------------------------------

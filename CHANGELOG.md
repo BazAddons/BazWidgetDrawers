@@ -2,16 +2,17 @@
 
 > Renamed from BazDrawer to BazWidgetDrawers in v016. Settings are migrated automatically.
 
-## 061 — Minimap Buttons stay put when clicked
+## 062 — First-install fix and Midnight API updates
 
-Some addons (VaultLoom is the one that surfaced this) re-anchor
-their own minimap button back to the minimap when you click them
-to open the addon — yanking the button right out of the Minimap
-Buttons widget. The widget now re-asserts ownership shortly after
-each click, snapping the button back into its slot. The round
-trip is fast enough that the visual yank isn't even visible.
+**Fixed an error on first install.** Setting up the default drawer on a
+fresh profile could fail because the curated widget order was not
+available yet, leaving the drawer unconfigured.
 
-Also: the Minimap Buttons widget is now on by default for new
-installs, with a curated top-to-bottom default widget order
-(Zone Text → Minimap → Minimap Buttons → Quest Tracker). Existing
-profiles are unchanged.
+**Achievement blocks open the Achievements window again.** Left-clicking
+an achievement in the Quest Tracker widget now loads Blizzard's
+Achievements UI if it has not been opened yet, instead of doing nothing.
+
+**Midnight API updates.** The Zone Text widget's PvP zone colouring and
+the clock loader in the Minimap Info Bar use the current APIs.
+
+**Marked compatible with patch 12.1.0.** The addon no longer shows as out of date in the AddOns list.

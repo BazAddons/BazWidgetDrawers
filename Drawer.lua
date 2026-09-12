@@ -77,36 +77,6 @@ local function ApplyAtlasToTexture(tex, atlas, flipH)
     tex:SetAtlas(atlas)
 end
 
--- Apply Blizzard's metallic gm-btn* atlases to a toggle button. The
--- `prefix` selects the arrow direction ("gm-btnforward" = right arrow,
--- "gm-btnback" = left arrow). `flipH` mirrors the texture horizontally
--- so the pill chrome attaches correctly on the drawer's opposite side.
-local function ApplyToggleAtlases(btn, prefix, flipH)
-    local normal = prefix .. "-normal"
-    local pressed = prefix .. "-pressed"
-    local hover = prefix .. "-hover"
-
-    -- Ensure the button has normal/pushed textures. Button:GetNormalTexture
-    -- returns nil if SetNormalTexture/SetNormalAtlas has never been called,
-    -- so we always do the SetAtlas path first - then apply the horizontal
-    -- flip on top if requested.
-    btn:SetNormalAtlas(normal)
-    btn:SetPushedAtlas(pressed)
-
-    if flipH then
-        ApplyAtlasToTexture(btn:GetNormalTexture(), normal, true)
-        ApplyAtlasToTexture(btn:GetPushedTexture(), pressed, true)
-    end
-
-    btn._normalAtlas = normal
-    btn._hoverAtlas = hover
-    btn._pressedAtlas = pressed
-    btn._flipH = flipH
-
-    local nt = btn:GetNormalTexture();  if nt then nt:SetDrawLayer("OVERLAY") end
-    local pt = btn:GetPushedTexture();  if pt then pt:SetDrawLayer("OVERLAY") end
-end
-
 ---------------------------------------------------------------------------
 -- Build
 ---------------------------------------------------------------------------
@@ -256,7 +226,7 @@ function Drawer:ApplySide()
     f:SetWidth(width)
 
     local topPoint, bottomPoint, expandedX, collapsedX
-    local tabSelf, tabRelative, flipTab, tabXOffset
+    local tabSelf, tabRelative, tabXOffset
 
     local EDGE_HIDE = 8  -- push frame off-screen to hide the border edge
 
@@ -266,7 +236,6 @@ function Drawer:ApplySide()
         collapsedX = -width
         tabSelf = "LEFT"                    -- tab's left anchors to drawer's right edge
         tabRelative = "RIGHT"
-        flipTab = true                      -- tab chrome needs to mirror on the left
         tabXOffset = -TAB_BORDER_INSET      -- push tab left into the border
     else -- right
         topPoint, bottomPoint = "TOPRIGHT", "BOTTOMRIGHT"
@@ -274,7 +243,6 @@ function Drawer:ApplySide()
         collapsedX = width
         tabSelf = "RIGHT"                   -- tab's right anchors to drawer's left edge
         tabRelative = "LEFT"
-        flipTab = false                     -- right side uses native atlas orientation
         tabXOffset = TAB_BORDER_INSET       -- push tab right into the border
     end
 
@@ -282,20 +250,6 @@ function Drawer:ApplySide()
     -- Expanded > click collapses drawer toward its edge (arrow toward edge).
     -- Collapsed > click expands drawer toward screen center.
     --
-    -- Native arrows: gm-btnforward = >, gm-btnback = ←
-    -- Flipped on the left side: each atlas mirrors, so btnforward renders as ←
-    -- and btnback renders as >.
-    local prefixExpanded, prefixCollapsed
-    if flipTab then
-        -- We want ← when expanded on the left (collapse left). Use btnforward
-        -- (native >) and flip to render ←.
-        prefixExpanded = "gm-btnforward"
-        prefixCollapsed = "gm-btnback"
-    else
-        prefixExpanded = "gm-btnforward"  -- native > (collapse right)
-        prefixCollapsed = "gm-btnback"    -- native ← (expand left)
-    end
-
     -- Store computed positions for the slide animation
     self._topPoint = topPoint
     self._bottomPoint = bottomPoint
@@ -909,7 +863,6 @@ end
 ---------------------------------------------------------------------------
 
 function Drawer:ComputeFadeTargets()
-    local f = self.frame
     local bgBase    = addon:GetSetting("backgroundOpacity") or 0.9
     local frameBase = addon:GetSetting("frameOpacity")      or 1.0
     local fadedA    = addon:GetSetting("fadedOpacity")      or 0.3

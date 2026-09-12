@@ -8,6 +8,17 @@
 
 local ADDON_NAME = "BazWidgetDrawers"
 
+-- Default top-to-bottom order applied to a fresh "default" drawer
+-- on first install. Without this, GetSortedWidgets falls back to
+-- alphabetical-by-id, which doesn't match the curated layout. Gaps
+-- of 10 leave room to slot extra widgets between defaults later.
+local DEFAULT_WIDGET_ORDER = {
+    bazdrawer_zonetext        = 10,
+    bazdrawer_minimap         = 20,
+    bazdrawer_minimapbuttons  = 30,
+    bazdrawer_questtracker    = 40,
+}
+
 local addon
 addon = BazCore:RegisterAddon(ADDON_NAME, {
     title = "BazWidgetDrawers",
@@ -282,10 +293,8 @@ function addon:DeleteDrawer(id)
     self:SetSetting("drawers", drawers)
     -- If we deleted the active drawer, switch to the first remaining one
     if self:GetActiveDrawerId() == id then
-        for remainingId in pairs(drawers) do
-            self:SetActiveDrawer(remainingId)
-            break
-        end
+        local remainingId = next(drawers)
+        if remainingId then self:SetActiveDrawer(remainingId) end
     end
     if self.Drawer and self.Drawer.RefreshTabs then
         self.Drawer:RefreshTabs()
@@ -625,17 +634,6 @@ local DEFAULT_ENABLED_WIDGETS = {
     bazdrawer_minimap         = true,
     bazdrawer_minimapbuttons  = true,
     bazdrawer_questtracker    = true,
-}
-
--- Default top-to-bottom order applied to a fresh "default" drawer
--- on first install. Without this, GetSortedWidgets falls back to
--- alphabetical-by-id, which doesn't match the curated layout. Gaps
--- of 10 leave room to slot extra widgets between defaults later.
-local DEFAULT_WIDGET_ORDER = {
-    bazdrawer_zonetext        = 10,
-    bazdrawer_minimap         = 20,
-    bazdrawer_minimapbuttons  = 30,
-    bazdrawer_questtracker    = 40,
 }
 
 function addon:IsWidgetEnabled(id)

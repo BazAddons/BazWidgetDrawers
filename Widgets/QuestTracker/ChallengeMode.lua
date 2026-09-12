@@ -57,7 +57,7 @@ function QT.GetChallengeModeData()
     local mapID = C_ChallengeMode.GetActiveChallengeMapID()
     if not mapID then return nil end
 
-    local level, affixIDs, wasEnergized = C_ChallengeMode.GetActiveKeystoneInfo()
+    local level, affixIDs = C_ChallengeMode.GetActiveKeystoneInfo()
     local mapName, _, timeLimit = C_ChallengeMode.GetMapUIInfo(mapID)
     local deathCount, timeLost = C_ChallengeMode.GetDeathCount()
 

@@ -147,21 +147,6 @@ end
 --               isScaled = bool, nativeSize = {w,h}, nativeScale = number }
 local adopted = {}
 
-local function RestoreButton(btn)
-    local orig = adopted[btn]
-    if not orig then return end
-    btn:SetParent(orig.parent or Minimap)
-    btn:ClearAllPoints()
-    if #orig.points > 0 then
-        for _, p in ipairs(orig.points) do
-            btn:SetPoint(unpack(p))
-        end
-    else
-        btn:SetPoint("CENTER", Minimap, "CENTER", 0, 0)
-    end
-    adopted[btn] = nil
-end
-
 -- Build the fixed slot grid. Each slot is a frame at a pre-computed
 -- (col, row) position with a fixed BUTTON_SIZE footprint. Buttons are
 -- reparented into these slots and anchored CENTER-to-CENTER, which

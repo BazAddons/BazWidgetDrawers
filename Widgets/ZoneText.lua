@@ -27,7 +27,7 @@ addon.ZoneWidget = ZoneWidget
 ---------------------------------------------------------------------------
 
 local function GetZoneColor()
-    local pvpType, _, factionName = GetZonePVPInfo()
+    local pvpType = C_PvP.GetZonePVPInfo()
     if pvpType == "sanctuary" then
         return 0.41, 0.80, 0.94   -- light blue - sanctuary
     elseif pvpType == "arena" then

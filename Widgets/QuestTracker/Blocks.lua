@@ -117,8 +117,8 @@ function QT.CreateBlock()
 
         if kind == "achievement" then
             if button == "LeftButton" then
-                if not _G.AchievementFrame and UIParentLoadAddOn then
-                    UIParentLoadAddOn("Blizzard_AchievementUI")
+                if not _G.AchievementFrame then
+                    C_AddOns.LoadAddOn("Blizzard_AchievementUI")
                 end
                 if AchievementFrame_ToggleAchievementFrame then
                     if not AchievementFrame or not AchievementFrame:IsShown() then
@@ -259,7 +259,6 @@ function QT.CreateBlock()
     local barH = math.floor(17 * SCALE)         -- ~16
     local frameW = math.floor(207 * SCALE)      -- atlas native ~207
     local frameH = math.floor(38 * SCALE)       -- atlas native ~38
-    local ringSize = math.floor(38 * SCALE)     -- ring atlas native ~38
 
     local bar = CreateFrame("StatusBar", nil, block)
     bar:SetSize(barW, barH)
