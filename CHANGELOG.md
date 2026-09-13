@@ -2,17 +2,15 @@
 
 > Renamed from BazDrawer to BazWidgetDrawers in v016. Settings are migrated automatically.
 
-## 062 — First-install fix and Midnight API updates
+## 063 — Minimap Buttons catches more buttons
 
-**Fixed an error on first install.** Setting up the default drawer on a
-fresh profile could fail because the curated widget order was not
-available yet, leaving the drawer unconfigured.
+**Buttons that don't use LibDBIcon are adopted too.** Addons that draw
+their own minimap button (Vaultloom, for example) were left sitting on
+the minimap ring. The widget now recognises any addon launcher button by
+its size and shape, while still leaving Blizzard's own minimap controls
+and map pins alone.
 
-**Achievement blocks open the Achievements window again.** Left-clicking
-an achievement in the Quest Tracker widget now loads Blizzard's
-Achievements UI if it has not been opened yet, instead of doing nothing.
-
-**Midnight API updates.** The Zone Text widget's PvP zone colouring and
-the clock loader in the Minimap Info Bar use the current APIs.
-
-**Marked compatible with patch 12.1.0.** The addon no longer shows as out of date in the AddOns list.
+**Late-loading addons are picked up automatically.** The widget sweeps
+again a few seconds after login, after any addon finishes loading, and
+the moment LibDBIcon reports a new icon. The manual Re-scan option is
+still there if you ever need it.

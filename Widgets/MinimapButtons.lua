@@ -1,16 +1,20 @@
 -- SPDX-License-Identifier: GPL-2.0-or-later
 -- BazWidgetDrawers Widget: MinimapButtons
 --
--- Scans the Minimap for LibDBIcon-registered addon buttons and reparents
--- them into a grid inside the drawer. Most addon minimap buttons are
--- LibDBIcon ones with a consistent naming pattern (LibDBIcon10_<Name>),
--- so we use that as the adoption filter to avoid disturbing Blizzard's
--- own minimap chrome (mail, tracking, zone text, etc).
+-- Scans the Minimap for addon buttons and reparents them into a grid
+-- inside the drawer. LibDBIcon buttons are recognised by name
+-- (LibDBIcon10_<Name>). Addons that roll their own button (Vaultloom,
+-- Zygor, ...) are caught by a conservative heuristic: a *named* Button
+-- child of Minimap, roughly minimap-button sized, whose name doesn't
+-- look like Blizzard chrome or a map pin. Unnamed frames (pins from
+-- HandyNotes, gathering addons, ...) never qualify.
 --
--- Buttons are adopted once at login (after a short delay so other addons
--- finish registering their LibDBIcon icons) and again on demand via the
--- widget's "Re-scan" option. Original parent + anchor are saved so we
--- can release buttons back to the minimap on unload if ever needed.
+-- Buttons are adopted at login (after a short delay so other addons
+-- finish registering), again a few seconds later for slow starters,
+-- whenever LibDBIcon reports a new icon, after any addon finishes
+-- loading (load-on-demand), and on demand via the widget's "Re-scan"
+-- option. Original parent + anchor are saved so we can release buttons
+-- back to the minimap on unload if ever needed.
 
 local addon = BazCore:GetAddon("BazWidgetDrawers")
 if not addon then return end
@@ -50,21 +54,57 @@ local QUEUE_EYE_EVENTS = {
 }
 
 ---------------------------------------------------------------------------
--- Adoption filter. We use a WHITELIST approach: only adopt frames that
--- match the LibDBIcon naming convention (LibDBIcon10_*) or are on a
--- small known-good list of non-LibDBIcon minimap buttons. This prevents
--- map-pin addons like HandyNotes from flooding the grid with dozens of
--- invisible pin frames that happen to be named Button children of
--- Minimap.
+-- Adoption filter.
+--
+-- 1. LibDBIcon buttons (LibDBIcon10_*) are always adopted.
+-- 2. Names on KNOWN_MINIMAP_BUTTONS are always adopted, even if they'd
+--    fail the heuristic below.
+-- 3. Anything else must be a *named* Button parented to Minimap, sized
+--    like a minimap button (MIN_ADOPT_SIZE..MAX_ADOPT_SIZE px), with a
+--    name that doesn't match Blizzard chrome or map-pin patterns.
+--
+-- The name requirement is what keeps map-pin addons (HandyNotes,
+-- gathering trackers, ...) from flooding the grid: their pins are
+-- unnamed Button children of Minimap. Names are also how the custom
+-- ordering setting refers to buttons, so unnamed frames couldn't be
+-- managed anyway.
 ---------------------------------------------------------------------------
 
--- Non-LibDBIcon minimap buttons from known addons that we should adopt.
--- Add entries here if a specific addon's minimap button doesn't use
--- LibDBIcon and needs to appear in the widget.
+-- Non-LibDBIcon minimap buttons from known addons that we always adopt.
 local KNOWN_MINIMAP_BUTTONS = {
     ["BazCoreMinimapButton"]       = true,
     ["ZygorGuidesViewerMapIcon"]   = true,
+    ["VaultloomMinimapButton"]     = true,
 }
+
+-- Never adopt these even if they pass the heuristic.
+local EXCLUDED_MINIMAP_BUTTONS = {
+    ["MinimapZoomIn"]      = true,
+    ["MinimapZoomOut"]     = true,
+    ["QueueStatusButton"]  = true,  -- adopted via its own special path
+    ["GameTimeFrame"]      = true,
+    ["MiniMapTracking"]    = true,
+    ["MiniMapMailFrame"]   = true,
+}
+
+-- Name fragments that mark Blizzard chrome or per-location pins rather
+-- than a launcher button.
+local EXCLUDED_NAME_PATTERNS = {
+    "^Minimap", "^MiniMap", "^Blizzard", "^ExpansionLandingPage",
+    "^AddonCompartment", "^GarrisonLandingPage", "^HandyNotes", "^TomTom",
+    "Pin%d*$", "Pin[A-Z_]", "Waypoint", "Arrow", "Node", "Blip", "POI",
+}
+
+local MIN_ADOPT_SIZE = 20
+local MAX_ADOPT_SIZE = 48
+
+local function LooksLikeLauncherName(name)
+    if EXCLUDED_MINIMAP_BUTTONS[name] then return false end
+    for _, pat in ipairs(EXCLUDED_NAME_PATTERNS) do
+        if name:find(pat) then return false end
+    end
+    return true
+end
 
 local function IsAdoptable(frame)
     if not frame or not frame.IsObjectType or not frame:IsObjectType("Button") then
@@ -80,7 +120,12 @@ local function IsAdoptable(frame)
     -- Known non-LibDBIcon minimap buttons
     if KNOWN_MINIMAP_BUTTONS[name] then return true end
 
-    return false
+    -- Heuristic for everything else: launcher-sized, launcher-named.
+    if not LooksLikeLauncherName(name) then return false end
+    local w, h = frame:GetWidth() or 0, frame:GetHeight() or 0
+    if w < MIN_ADOPT_SIZE or w > MAX_ADOPT_SIZE then return false end
+    if h < MIN_ADOPT_SIZE or h > MAX_ADOPT_SIZE then return false end
+    return true
 end
 
 ---------------------------------------------------------------------------
@@ -473,7 +518,7 @@ function MinimapButtonsWidget:GetOptionsArgs()
             order = 11,
             type = "execute",
             name = "Re-scan Minimap",
-            desc = "Scan the minimap for LibDBIcon addon buttons and adopt any new ones. Run this after loading a new addon that adds a minimap button.",
+            desc = "Scan the minimap for addon buttons and adopt any new ones. This also happens automatically at login and whenever an addon finishes loading; use it if a button still slipped through. Run this after loading a new addon that adds a minimap button.",
             func = function() MinimapButtonsWidget:Scan() end,
         },
         orderHeader = {
@@ -588,8 +633,36 @@ function MinimapButtonsWidget:Init()
         C_Timer.After(0, function() MinimapButtonsWidget:LayoutButtons() end)
     end)
 
-    -- Delay the first scan so LibDBIcon-using addons finish registering
+    -- Delay the first scan so LibDBIcon-using addons finish registering,
+    -- then sweep once more for slow starters (addons that build their
+    -- button on PLAYER_ENTERING_WORLD or after their own saved-variable
+    -- load finishes).
     C_Timer.After(1.5, function() MinimapButtonsWidget:Scan() end)
+    C_Timer.After(6.0, function() MinimapButtonsWidget:Scan() end)
+
+    -- Load-on-demand and late-loading addons: rescan shortly after any
+    -- addon finishes loading. Debounced so a burst of ADDON_LOADED at
+    -- login collapses into one pass.
+    local rescanPending = false
+    local loadWatcher = CreateFrame("Frame")
+    loadWatcher:RegisterEvent("ADDON_LOADED")
+    loadWatcher:SetScript("OnEvent", function()
+        if rescanPending then return end
+        rescanPending = true
+        C_Timer.After(1.0, function()
+            rescanPending = false
+            MinimapButtonsWidget:Scan()
+        end)
+    end)
+
+    -- LibDBIcon tells us the moment a new icon is created, no matter
+    -- how late. Optional: only wired if some loaded addon embeds it.
+    local dbicon = LibStub and LibStub("LibDBIcon-1.0", true)
+    if dbicon and dbicon.RegisterCallback then
+        dbicon.RegisterCallback(MinimapButtonsWidget, "LibDBIcon_IconCreated", function()
+            C_Timer.After(0, function() MinimapButtonsWidget:Scan() end)
+        end)
+    end
 end
 
 BazCore:QueueForLogin(function() MinimapButtonsWidget:Init() end)
